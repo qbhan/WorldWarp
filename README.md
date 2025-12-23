@@ -8,7 +8,7 @@
 <h5 align="center">
 
 [![Home Page](https://img.shields.io/badge/Project-Website-33728E.svg)](https://hyokong.github.io/worldwarp-page/) 
-[![arXiv](https://img.shields.io/badge/Arxiv-2512.xxxxx-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2512.xxxxx) 
+[![arXiv](https://img.shields.io/badge/Arxiv-2512.19678-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2512.19678) 
 [![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Demo-blue)](https://huggingface.co/imsuperkong/worldwarp) [![Watch on YouTube](https://img.shields.io/badge/YouTube-Demo_Video-red?style=flat&logo=youtube)](https://www.youtube.com/watch?v=rfMHxb--cKs)
 
 
@@ -188,7 +188,7 @@ If you find our work useful, please cite:
   title={WorldWarp: Propagating 3D Geometry with Asynchronous Video Diffusion}, 
   author={Hanyang Kong and Xingyi Yang and Xiaoxu Zheng and Xinchao Wang},
   year={2025},
-  eprint={2512.xxxxx},
+  eprint={2512.19678},
   archivePrefix={arXiv},
   primaryClass={cs.CV}
 }
