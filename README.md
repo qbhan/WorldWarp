@@ -9,7 +9,7 @@
 
 [![Home Page](https://img.shields.io/badge/Project-Website-33728E.svg)](https://hyokong.github.io/worldwarp-page/) 
 [![arXiv](https://img.shields.io/badge/Arxiv-2512.19678-b31b1b.svg?logo=arXiv)](https://arxiv.org/abs/2512.19678) 
-[![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Demo-blue)](https://huggingface.co/imsuperkong/worldwarp) [![Watch on YouTube](https://img.shields.io/badge/YouTube-Demo_Video-red?style=flat&logo=youtube)](https://www.youtube.com/watch?v=rfMHxb--cKs)
+[![HuggingFace](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Model-blue)](https://huggingface.co/imsuperkong/worldwarp) [![Watch on YouTube](https://img.shields.io/badge/YouTube-Demo_Video-red?style=flat&logo=youtube)](https://www.youtube.com/watch?v=rfMHxb--cKs)
 
 
 [Hanyang Kong](https://hyokong.github.io/),
