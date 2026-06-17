@@ -4,4 +4,4 @@ ckpt/
 __pycache__/
 build/
 *.so
-.vscode/
+.vscode/.omc/

@@ -979,518 +979,523 @@ class VideoGenerationSession:
         return self.combined_video_path, f"✂️ Rolled back to chunk {chunk_number}", history, captions
 
 
-# Initialize session on startup
-print("="*60)
-print("🎬 Pose-Controlled Video Generation")
-print("="*60)
-session = VideoGenerationSession()
+def main():
+    # Initialize session on startup
+    print("="*60)
+    print("🎬 Pose-Controlled Video Generation")
+    print("="*60)
+    session = VideoGenerationSession()
 
 
-# -----------------------------------------------------------------
-# 🎛️ Gradio Interface Functions
-# -----------------------------------------------------------------
+    # -----------------------------------------------------------------
+    # 🎛️ Gradio Interface Functions
+    # -----------------------------------------------------------------
 
-def generate_first_frame_from_prompt(prompt, negative):
-    image, status = session.generate_first_frame(prompt, negative)
-    return image, status
-
-
-def use_uploaded_image(image):
-    if image is None:
-        return None, "❌ No image uploaded"
-    image_display, status = session.set_uploaded_image(image)
-    return image_display, status
+    def generate_first_frame_from_prompt(prompt, negative):
+        image, status = session.generate_first_frame(prompt, negative)
+        return image, status
 
 
-def generate_preset_chunks(prompt, negative, movements, num_chunks, ctx2, strength, gs_iter, seed):
-    video, status, history, captions = session.generate_chunks(
-        prompt, negative, movements, num_chunks, ctx2, strength, gs_iter, seed
-    )
-    return video, status, history, captions
+    def use_uploaded_image(image):
+        if image is None:
+            return None, "❌ No image uploaded"
+        image_display, status = session.set_uploaded_image(image)
+        return image_display, status
 
 
-def generate_custom_chunks(prompt, negative, roll, pitch, yaw, fwd, right, up, 
-                           ang_r, ang_p, ang_y, num_chunks, ctx2, strength, gs_iter, seed):
-    video, status, history, captions = session.generate_custom_chunk(
-        prompt, negative, roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y,
-        num_chunks, ctx2, strength, gs_iter, seed
-    )
-    return video, status, history, captions
-
-
-def load_example_video_poses(video_path):
-    """Load poses from selected example video"""
-    if video_path is None:
-        return "❌ No video selected", ""
-    status, info = session.extract_camera_from_video(video_path, use_cache=True)
-    return status, info
-
-
-def clear_extracted_poses():
-    """Clear the extracted poses"""
-    status, info = session.clear_extracted_poses()
-    return status, info
-
-
-def generate_extracted_chunks(prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
-                              extension_mode, speed_multiplier):
-    """Generate chunks using extracted camera poses"""
-    video, status, history, captions = session.generate_chunks_from_extracted(
-        prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
-        extension_mode, speed_multiplier
-    )
-    return video, status, history, captions
-
-
-def on_example_image_select(evt: gr.SelectData, examples_data):
-    """Handle example image selection - update display image and dropdown"""
-    if examples_data is None or len(examples_data) == 0:
-        return None, gr.update()
-    
-    selected_idx = evt.index
-    if selected_idx < len(examples_data):
-        img_path, name = examples_data[selected_idx]
-        # Return: display image and dropdown selection (no prompt - Qwen will caption)
-        return img_path, name
-    return None, gr.update()
-
-
-def on_example_dropdown_change(selected_name, examples_data):
-    """Handle dropdown selection - update image display"""
-    if selected_name is None or examples_data is None:
-        return None
-    
-    for img_path, name in examples_data:
-        if name == selected_name:
-            return img_path
-    return None
-
-
-def use_example_image(selected_example_image):
-    """Use the selected example image as starting image"""
-    if selected_example_image is None:
-        return None, "❌ No example image selected"
-    image_display, status = session.set_uploaded_image(selected_example_image)
-    return image_display, status
-
-
-def reset_session():
-    first_img, video, status, history, captions = session.reset()
-    return first_img, video, status, history, captions, None, "", ""
-
-
-def rollback_to_chunk(chunk_num):
-    video, status, history, captions = session.rollback_to_chunk(chunk_num)
-    return video, status, history, captions
-
-
-def on_example_video_select(evt: gr.SelectData, gallery_data):
-    """Handle example video selection from gallery - only preview, don't load poses"""
-    if gallery_data is None or len(gallery_data) == 0:
-        return None
-    
-    selected_idx = evt.index
-    if selected_idx < len(gallery_data):
-        video_path = gallery_data[selected_idx]
-        return video_path
-    return None
-
-
-def toggle_camera_mode(mode):
-    """Toggle visibility of camera mode groups"""
-    return (
-        gr.update(visible=(mode == "from_video")),  # from_video_group
-        gr.update(visible=(mode == "preset")),       # preset_group
-        gr.update(visible=(mode == "custom")),       # custom_group
-    )
-
-
-def generate_video(camera_mode, prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
-                   # From video params
-                   extension_mode, speed_multiplier,
-                   # Preset params
-                   movements,
-                   # Custom params
-                   roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y):
-    """Unified generate function that dispatches based on camera mode"""
-    
-    if camera_mode == "from_video":
-        return generate_extracted_chunks(
-            prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
-            extension_mode, speed_multiplier
-        )
-    elif camera_mode == "preset":
-        return generate_preset_chunks(
+    def generate_preset_chunks(prompt, negative, movements, num_chunks, ctx2, strength, gs_iter, seed):
+        video, status, history, captions = session.generate_chunks(
             prompt, negative, movements, num_chunks, ctx2, strength, gs_iter, seed
         )
-    elif camera_mode == "custom":
-        return generate_custom_chunks(
+        return video, status, history, captions
+
+
+    def generate_custom_chunks(prompt, negative, roll, pitch, yaw, fwd, right, up, 
+                               ang_r, ang_p, ang_y, num_chunks, ctx2, strength, gs_iter, seed):
+        video, status, history, captions = session.generate_custom_chunk(
             prompt, negative, roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y,
             num_chunks, ctx2, strength, gs_iter, seed
         )
-    else:
-        return None, "❌ Unknown camera mode", "", ""
+        return video, status, history, captions
 
 
-# -----------------------------------------------------------------
-# 🖼️ Build Gradio Interface
-# -----------------------------------------------------------------
+    def load_example_video_poses(video_path):
+        """Load poses from selected example video"""
+        if video_path is None:
+            return "❌ No video selected", ""
+        status, info = session.extract_camera_from_video(video_path, use_cache=True)
+        return status, info
 
-# Get example videos
-example_videos = get_example_videos()
-print(f"📁 Found {len(example_videos)} example videos in '{EXAMPLE_VIDEOS_DIR}'")
 
-# Get example images (prompts will be auto-generated by Qwen)
-example_images = get_example_images()
-print(f"🖼️ Found {len(example_images)} example images")
+    def clear_extracted_poses():
+        """Clear the extracted poses"""
+        status, info = session.clear_extracted_poses()
+        return status, info
 
-with gr.Blocks(
-    title="🎬 WorldWarp: Propagating 3D Geometry with Asynchronous Video Diffusion",
-    css="""
-        #main_generate_btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-            border: none !important;
-            font-size: 1.1em !important;
-            font-weight: bold !important;
-            padding: 12px 24px !important;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
-            transition: all 0.3s ease !important;
-        }
-        #main_generate_btn:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
-        }
-    """
-) as demo:
-    gr.Markdown("# 🎬 WorldWarp: Propagating 3D Geometry with Asynchronous Video Diffusion")
-    
-    # Store example video paths for reference
-    example_video_paths = gr.State(example_videos)
-    
-    # Store example images for reference (prompts auto-generated by Qwen)
-    example_images_state = gr.State(example_images)
-    
-    with gr.Row():
-        # =====================================================
-        # COLUMN 1: Prompt & Starting Image
-        # =====================================================
-        with gr.Column(scale=1):
-            gr.Markdown("### 📝 Prompt")
-            
-            # Example selection dropdown
-            if len(example_images) > 0:
-                example_names = [name for _, name in example_images]
-                example_dropdown = gr.Dropdown(
-                    choices=example_names,
-                    label="📚 Select Example Image",
-                    value=None,
-                    interactive=True
-                )
-            else:
-                example_dropdown = gr.Dropdown(
-                    choices=[],
-                    label="📚 Select Example (no examples found)",
-                    value=None,
-                    interactive=False
-                )
-            
-            prompt = gr.Textbox(
-                label="Prompt (leave empty for auto-caption)",
-                lines=3,
-                value="",
-                placeholder="Optional: Enter a prompt or leave empty for Qwen to auto-generate"
+
+    def generate_extracted_chunks(prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
+                                  extension_mode, speed_multiplier):
+        """Generate chunks using extracted camera poses"""
+        video, status, history, captions = session.generate_chunks_from_extracted(
+            prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
+            extension_mode, speed_multiplier
+        )
+        return video, status, history, captions
+
+
+    def on_example_image_select(evt: gr.SelectData, examples_data):
+        """Handle example image selection - update display image and dropdown"""
+        if examples_data is None or len(examples_data) == 0:
+            return None, gr.update()
+        
+        selected_idx = evt.index
+        if selected_idx < len(examples_data):
+            img_path, name = examples_data[selected_idx]
+            # Return: display image and dropdown selection (no prompt - Qwen will caption)
+            return img_path, name
+        return None, gr.update()
+
+
+    def on_example_dropdown_change(selected_name, examples_data):
+        """Handle dropdown selection - update image display"""
+        if selected_name is None or examples_data is None:
+            return None
+        
+        for img_path, name in examples_data:
+            if name == selected_name:
+                return img_path
+        return None
+
+
+    def use_example_image(selected_example_image):
+        """Use the selected example image as starting image"""
+        if selected_example_image is None:
+            return None, "❌ No example image selected"
+        image_display, status = session.set_uploaded_image(selected_example_image)
+        return image_display, status
+
+
+    def reset_session():
+        first_img, video, status, history, captions = session.reset()
+        return first_img, video, status, history, captions, None, "", ""
+
+
+    def rollback_to_chunk(chunk_num):
+        video, status, history, captions = session.rollback_to_chunk(chunk_num)
+        return video, status, history, captions
+
+
+    def on_example_video_select(evt: gr.SelectData, gallery_data):
+        """Handle example video selection from gallery - only preview, don't load poses"""
+        if gallery_data is None or len(gallery_data) == 0:
+            return None
+        
+        selected_idx = evt.index
+        if selected_idx < len(gallery_data):
+            video_path = gallery_data[selected_idx]
+            return video_path
+        return None
+
+
+    def toggle_camera_mode(mode):
+        """Toggle visibility of camera mode groups"""
+        return (
+            gr.update(visible=(mode == "from_video")),  # from_video_group
+            gr.update(visible=(mode == "preset")),       # preset_group
+            gr.update(visible=(mode == "custom")),       # custom_group
+        )
+
+
+    def generate_video(camera_mode, prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
+                       # From video params
+                       extension_mode, speed_multiplier,
+                       # Preset params
+                       movements,
+                       # Custom params
+                       roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y):
+        """Unified generate function that dispatches based on camera mode"""
+        
+        if camera_mode == "from_video":
+            return generate_extracted_chunks(
+                prompt, negative, num_chunks, ctx2, strength, gs_iter, seed,
+                extension_mode, speed_multiplier
             )
-            negative = gr.Textbox(
-                label="Negative Prompt",
-                lines=2,
-                value=CONFIG.prompts.negative
+        elif camera_mode == "preset":
+            return generate_preset_chunks(
+                prompt, negative, movements, num_chunks, ctx2, strength, gs_iter, seed
             )
-            
-            gr.Markdown("### 🖼️ Starting Image")
-            
-            with gr.Tab("📚 Examples"):
+        elif camera_mode == "custom":
+            return generate_custom_chunks(
+                prompt, negative, roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y,
+                num_chunks, ctx2, strength, gs_iter, seed
+            )
+        else:
+            return None, "❌ Unknown camera mode", "", ""
+
+
+    # -----------------------------------------------------------------
+    # 🖼️ Build Gradio Interface
+    # -----------------------------------------------------------------
+
+    # Get example videos
+    example_videos = get_example_videos()
+    print(f"📁 Found {len(example_videos)} example videos in '{EXAMPLE_VIDEOS_DIR}'")
+
+    # Get example images (prompts will be auto-generated by Qwen)
+    example_images = get_example_images()
+    print(f"🖼️ Found {len(example_images)} example images")
+
+    with gr.Blocks(
+        title="🎬 WorldWarp: Propagating 3D Geometry with Asynchronous Video Diffusion",
+        css="""
+            #main_generate_btn {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                border: none !important;
+                font-size: 1.1em !important;
+                font-weight: bold !important;
+                padding: 12px 24px !important;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+                transition: all 0.3s ease !important;
+            }
+            #main_generate_btn:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+            }
+        """
+    ) as demo:
+        gr.Markdown("# 🎬 WorldWarp: Propagating 3D Geometry with Asynchronous Video Diffusion")
+        
+        # Store example video paths for reference
+        example_video_paths = gr.State(example_videos)
+        
+        # Store example images for reference (prompts auto-generated by Qwen)
+        example_images_state = gr.State(example_images)
+        
+        with gr.Row():
+            # =====================================================
+            # COLUMN 1: Prompt & Starting Image
+            # =====================================================
+            with gr.Column(scale=1):
+                gr.Markdown("### 📝 Prompt")
+                
+                # Example selection dropdown
                 if len(example_images) > 0:
-                    example_images_gallery = gr.Gallery(
-                        value=[(img_path, name) for img_path, name in example_images],
-                        label="Example Images (click to select)",
-                        columns=4,
-                        rows=2,
-                        height=180,
-                        object_fit="cover",
-                        allow_preview=True
+                    example_names = [name for _, name in example_images]
+                    example_dropdown = gr.Dropdown(
+                        choices=example_names,
+                        label="📚 Select Example Image",
+                        value=None,
+                        interactive=True
                     )
-                    selected_example_display = gr.Image(
-                        label="Selected Example",
-                        type="filepath",
-                        height=160,
+                else:
+                    example_dropdown = gr.Dropdown(
+                        choices=[],
+                        label="📚 Select Example (no examples found)",
+                        value=None,
                         interactive=False
                     )
-                    use_example_btn = gr.Button("✅ Use Selected Example", variant="primary")
-                else:
-                    example_images_gallery = None
-                    selected_example_display = None
-                    use_example_btn = None
-                    gr.Markdown("*No example images found in `examples/images/`*")
+                
+                prompt = gr.Textbox(
+                    label="Prompt (leave empty for auto-caption)",
+                    lines=3,
+                    value="",
+                    placeholder="Optional: Enter a prompt or leave empty for Qwen to auto-generate"
+                )
+                negative = gr.Textbox(
+                    label="Negative Prompt",
+                    lines=2,
+                    value=CONFIG.prompts.negative
+                )
+                
+                gr.Markdown("### 🖼️ Starting Image")
+                
+                with gr.Tab("📚 Examples"):
+                    if len(example_images) > 0:
+                        example_images_gallery = gr.Gallery(
+                            value=[(img_path, name) for img_path, name in example_images],
+                            label="Example Images (click to select)",
+                            columns=4,
+                            rows=2,
+                            height=180,
+                            object_fit="cover",
+                            allow_preview=True
+                        )
+                        selected_example_display = gr.Image(
+                            label="Selected Example",
+                            type="filepath",
+                            height=160,
+                            interactive=False
+                        )
+                        use_example_btn = gr.Button("✅ Use Selected Example", variant="primary")
+                    else:
+                        example_images_gallery = None
+                        selected_example_display = None
+                        use_example_btn = None
+                        gr.Markdown("*No example images found in `examples/images/`*")
+                
+                with gr.Tab("🎨 Generate"):
+                    gen_first_btn = gr.Button("Generate First Frame", variant="primary")
+                
+                with gr.Tab("📤 Upload"):
+                    uploaded_image = gr.Image(label="Upload Image", type="filepath", height=150)
+                    use_upload_btn = gr.Button("Use Uploaded Image", variant="primary")
+                
+                first_frame_display = gr.Image(label="Current Starting Image", type="filepath", height=200)
+                first_frame_status = gr.Textbox(label="Status", interactive=False, max_lines=1)
             
-            with gr.Tab("🎨 Generate"):
-                gen_first_btn = gr.Button("Generate First Frame", variant="primary")
-            
-            with gr.Tab("📤 Upload"):
-                uploaded_image = gr.Image(label="Upload Image", type="filepath", height=150)
-                use_upload_btn = gr.Button("Use Uploaded Image", variant="primary")
-            
-            first_frame_display = gr.Image(label="Current Starting Image", type="filepath", height=200)
-            first_frame_status = gr.Textbox(label="Status", interactive=False, max_lines=1)
-        
-        # =====================================================
-        # COLUMN 2: Camera Movement & Parameters
-        # =====================================================
-        with gr.Column(scale=1):
-            gr.Markdown("### 🎮 Camera Movement")
-            
-            # Camera mode selector
-            camera_mode = gr.Radio(
-                choices=[
-                    ("📹 From Video", "from_video"),
-                    ("🎯 Preset", "preset"),
-                    ("🔧 Custom", "custom"),
-                ],
-                value="from_video",
-                label="Control Mode"
-            )
-            
-            # ----- From Video Options -----
-            with gr.Group(visible=True) as from_video_group:
-                if len(example_videos) > 0:
-                    example_gallery = gr.Gallery(
-                        value=[(v, os.path.basename(v)) for v in example_videos],
-                        label="Example Videos (click to enlarge)",
-                        columns=5,
-                        rows=1,
-                        height=80,
-                        object_fit="cover",
-                        allow_preview=True
-                    )
+            # =====================================================
+            # COLUMN 2: Camera Movement & Parameters
+            # =====================================================
+            with gr.Column(scale=1):
+                gr.Markdown("### 🎮 Camera Movement")
+                
+                # Camera mode selector
+                camera_mode = gr.Radio(
+                    choices=[
+                        ("📹 From Video", "from_video"),
+                        ("🎯 Preset", "preset"),
+                        ("🔧 Custom", "custom"),
+                    ],
+                    value="from_video",
+                    label="Control Mode"
+                )
+                
+                # ----- From Video Options -----
+                with gr.Group(visible=True) as from_video_group:
+                    if len(example_videos) > 0:
+                        example_gallery = gr.Gallery(
+                            value=[(v, os.path.basename(v)) for v in example_videos],
+                            label="Example Videos (click to enlarge)",
+                            columns=5,
+                            rows=1,
+                            height=80,
+                            object_fit="cover",
+                            allow_preview=True
+                        )
+                        
+                        selected_video = gr.Video(
+                            label="Selected Video",
+                            height=200
+                        )
+                    else:
+                        example_gallery = None
+                        selected_video = gr.Video(
+                            label="Upload Reference Video",
+                            sources=["upload"],
+                            height=200
+                        )
                     
-                    selected_video = gr.Video(
-                        label="Selected Video",
-                        height=200
+                    with gr.Row():
+                        load_poses_btn = gr.Button("🎯 Load Poses", variant="primary", size="sm")
+                        clear_poses_btn = gr.Button("🗑️ Clear", variant="secondary", size="sm")
+                    
+                    extraction_status = gr.Textbox(label="Status", lines=2, interactive=False)
+                    extraction_info = gr.Textbox(label="Info", lines=1, interactive=False)
+                    
+                    with gr.Row():
+                        extension_mode = gr.Radio(
+                            choices=[
+                                ("Extrapolate", "extrapolate"),
+                                ("Loop", "loop"),
+                                ("Ping-Pong", "pingpong"),
+                                ("Slowdown", "slowdown"),
+                            ],
+                            value="extrapolate",
+                            label="Extension Mode"
+                        )
+                    
+                    speed_multiplier = gr.Slider(
+                        minimum=0.25, maximum=4.0, value=1.0, step=0.25,
+                        label="Speed Multiplier"
                     )
-                else:
-                    example_gallery = None
-                    selected_video = gr.Video(
-                        label="Upload Reference Video",
-                        sources=["upload"],
-                        height=200
+                
+                # ----- Preset Options -----
+                with gr.Group(visible=False) as preset_group:
+                    movement_selector = gr.CheckboxGroup(
+                        choices=sorted(list(CAMERA_MOVEMENTS.keys())),
+                        label="Select Movements (can combine)",
+                        value=[]
                     )
+                
+                # ----- Custom Options -----
+                with gr.Group(visible=False) as custom_group:
+                    gr.Markdown("**Rotation:**")
+                    with gr.Row():
+                        roll = gr.Slider(-10, 10, 0, step=0.1, label="Roll")
+                        pitch = gr.Slider(-10, 10, 0, step=0.1, label="Pitch")
+                        yaw = gr.Slider(-10, 10, 0, step=0.1, label="Yaw")
+                    
+                    gr.Markdown("**Translation:**")
+                    with gr.Row():
+                        fwd = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Fwd")
+                        right = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Right")
+                        up = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Up")
+                    
+                    gr.Markdown("**Angular Velocity:**")
+                    with gr.Row():
+                        ang_r = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Roll")
+                        ang_p = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Pitch")
+                        ang_y = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Yaw")
+                
+                gr.Markdown("### ⚙️ Parameters")
+                
+                num_chunks = gr.Slider(1, 5, value=1, step=1, label="Number of Chunks")
                 
                 with gr.Row():
-                    load_poses_btn = gr.Button("🎯 Load Poses", variant="primary", size="sm")
-                    clear_poses_btn = gr.Button("🗑️ Clear", variant="secondary", size="sm")
-                
-                extraction_status = gr.Textbox(label="Status", lines=2, interactive=False)
-                extraction_info = gr.Textbox(label="Info", lines=1, interactive=False)
+                    context_frames_2nd = gr.Slider(1, 25, value=1, step=4, label="Context Frames")
+                    strength = gr.Slider(0.0, 1.0, value=0.6, step=0.05, label="Strength")
                 
                 with gr.Row():
-                    extension_mode = gr.Radio(
-                        choices=[
-                            ("Extrapolate", "extrapolate"),
-                            ("Loop", "loop"),
-                            ("Ping-Pong", "pingpong"),
-                            ("Slowdown", "slowdown"),
-                        ],
-                        value="extrapolate",
-                        label="Extension Mode"
-                    )
+                    num_gs_iterations = gr.Slider(100, 2000, value=500, step=100, label="GS Iterations")
+                    seed = gr.Number(value=32, label="Seed", precision=0)
                 
-                speed_multiplier = gr.Slider(
-                    minimum=0.25, maximum=4.0, value=1.0, step=0.25,
-                    label="Speed Multiplier"
+                gr.Markdown("### 🎬 Management")
+                
+                with gr.Row():
+                    rollback_chunk_num = gr.Number(value=1, label="Rollback to #", precision=0, minimum=1)
+                    rollback_btn = gr.Button("✂️ Rollback", variant="secondary", size="sm")
+                    reset_btn = gr.Button("🔄 Reset", variant="stop", size="sm")
+            
+            # =====================================================
+            # COLUMN 3: Output
+            # =====================================================
+            with gr.Column(scale=1.25):
+                gr.Markdown("### 🎥 Output")
+                
+                video_output = gr.Video(label="Generated Video", height=400)
+                
+                gen_btn = gr.Button(
+                    "🎬 Generate Video",
+                    variant="primary",
+                    size="lg",
+                    elem_id="main_generate_btn"
                 )
-            
-            # ----- Preset Options -----
-            with gr.Group(visible=False) as preset_group:
-                movement_selector = gr.CheckboxGroup(
-                    choices=sorted(list(CAMERA_MOVEMENTS.keys())),
-                    label="Select Movements (can combine)",
-                    value=[]
+                
+                generation_status = gr.Textbox(label="Status", interactive=False, max_lines=2)
+                
+                gr.Markdown("### 📜 History")
+                history_text = gr.Textbox(
+                    label="Chunks",
+                    lines=4,
+                    interactive=False,
+                    value="No chunks yet"
                 )
-            
-            # ----- Custom Options -----
-            with gr.Group(visible=False) as custom_group:
-                gr.Markdown("**Rotation:**")
-                with gr.Row():
-                    roll = gr.Slider(-10, 10, 0, step=0.1, label="Roll")
-                    pitch = gr.Slider(-10, 10, 0, step=0.1, label="Pitch")
-                    yaw = gr.Slider(-10, 10, 0, step=0.1, label="Yaw")
                 
-                gr.Markdown("**Translation:**")
-                with gr.Row():
-                    fwd = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Fwd")
-                    right = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Right")
-                    up = gr.Slider(-0.05, 0.05, 0, step=0.001, label="Up")
-                
-                gr.Markdown("**Angular Velocity:**")
-                with gr.Row():
-                    ang_r = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Roll")
-                    ang_p = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Pitch")
-                    ang_y = gr.Slider(-0.5, 0.5, 0, step=0.01, label="Yaw")
-            
-            gr.Markdown("### ⚙️ Parameters")
-            
-            num_chunks = gr.Slider(1, 5, value=1, step=1, label="Number of Chunks")
-            
-            with gr.Row():
-                context_frames_2nd = gr.Slider(1, 25, value=1, step=4, label="Context Frames")
-                strength = gr.Slider(0.0, 1.0, value=0.6, step=0.05, label="Strength")
-            
-            with gr.Row():
-                num_gs_iterations = gr.Slider(100, 2000, value=500, step=100, label="GS Iterations")
-                seed = gr.Number(value=32, label="Seed", precision=0)
-            
-            gr.Markdown("### 🎬 Management")
-            
-            with gr.Row():
-                rollback_chunk_num = gr.Number(value=1, label="Rollback to #", precision=0, minimum=1)
-                rollback_btn = gr.Button("✂️ Rollback", variant="secondary", size="sm")
-                reset_btn = gr.Button("🔄 Reset", variant="stop", size="sm")
+                gr.Markdown("### 💬 Captions")
+                captions_text = gr.Textbox(
+                    label="Prompts",
+                    lines=6,
+                    interactive=False,
+                    value="No captions yet"
+                )
         
         # =====================================================
-        # COLUMN 3: Output
+        # EVENT HANDLERS
         # =====================================================
-        with gr.Column(scale=1.25):
-            gr.Markdown("### 🎥 Output")
-            
-            video_output = gr.Video(label="Generated Video", height=400)
-            
-            gen_btn = gr.Button(
-                "🎬 Generate Video",
-                variant="primary",
-                size="lg",
-                elem_id="main_generate_btn"
-            )
-            
-            generation_status = gr.Textbox(label="Status", interactive=False, max_lines=2)
-            
-            gr.Markdown("### 📜 History")
-            history_text = gr.Textbox(
-                label="Chunks",
-                lines=4,
-                interactive=False,
-                value="No chunks yet"
-            )
-            
-            gr.Markdown("### 💬 Captions")
-            captions_text = gr.Textbox(
-                label="Prompts",
-                lines=6,
-                interactive=False,
-                value="No captions yet"
-            )
-    
-    # =====================================================
-    # EVENT HANDLERS
-    # =====================================================
-    
-    # Camera mode toggle - show/hide relevant options
-    camera_mode.change(
-        toggle_camera_mode,
-        [camera_mode],
-        [from_video_group, preset_group, custom_group]
-    )
-    
-    # Example image selection events
-    if example_images_gallery is not None:
-        # Gallery click -> update dropdown and selected example display
-        example_images_gallery.select(
-            on_example_image_select,
-            [example_images_state],
-            [selected_example_display, example_dropdown]
+        
+        # Camera mode toggle - show/hide relevant options
+        camera_mode.change(
+            toggle_camera_mode,
+            [camera_mode],
+            [from_video_group, preset_group, custom_group]
         )
         
-        # Use example button -> set as starting image
-        use_example_btn.click(
-            use_example_image,
-            [selected_example_display],
+        # Example image selection events
+        if example_images_gallery is not None:
+            # Gallery click -> update dropdown and selected example display
+            example_images_gallery.select(
+                on_example_image_select,
+                [example_images_state],
+                [selected_example_display, example_dropdown]
+            )
+            
+            # Use example button -> set as starting image
+            use_example_btn.click(
+                use_example_image,
+                [selected_example_display],
+                [first_frame_display, first_frame_status]
+            )
+        
+        # Dropdown change -> update selected example display
+        example_dropdown.change(
+            on_example_dropdown_change,
+            [example_dropdown, example_images_state],
+            [selected_example_display]
+        )
+        
+        # Starting image events
+        gen_first_btn.click(
+            generate_first_frame_from_prompt,
+            [prompt, negative],
             [first_frame_display, first_frame_status]
         )
-    
-    # Dropdown change -> update selected example display
-    example_dropdown.change(
-        on_example_dropdown_change,
-        [example_dropdown, example_images_state],
-        [selected_example_display]
-    )
-    
-    # Starting image events
-    gen_first_btn.click(
-        generate_first_frame_from_prompt,
-        [prompt, negative],
-        [first_frame_display, first_frame_status]
-    )
-    
-    use_upload_btn.click(
-        use_uploaded_image,
-        [uploaded_image],
-        [first_frame_display, first_frame_status]
-    )
-    
-    # Example video gallery selection - only preview, don't load poses
-    if example_gallery is not None:
-        example_gallery.select(
-            on_example_video_select,
-            [example_video_paths],
-            [selected_video]  # Only update video preview
+        
+        use_upload_btn.click(
+            use_uploaded_image,
+            [uploaded_image],
+            [first_frame_display, first_frame_status]
         )
-    
-    # Pose loading events
-    load_poses_btn.click(
-        load_example_video_poses,
-        [selected_video],
-        [extraction_status, extraction_info]
-    )
-    
-    clear_poses_btn.click(
-        clear_extracted_poses,
-        [],
-        [extraction_status, extraction_info]
-    )
-    
-    # Main generate button - unified handler
-    gen_btn.click(
-        generate_video,
-        [camera_mode, prompt, negative, num_chunks, context_frames_2nd, 
-         strength, num_gs_iterations, seed,
-         # From video params
-         extension_mode, speed_multiplier,
-         # Preset params
-         movement_selector,
-         # Custom params
-         roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y],
-        [video_output, generation_status, history_text, captions_text]
-    )
-    
-    # Management events
-    reset_btn.click(
-        reset_session,
-        None,
-        [first_frame_display, video_output, generation_status, history_text, captions_text,
-         selected_video, extraction_status, extraction_info]
-    )
-    
-    rollback_btn.click(
-        rollback_to_chunk,
-        [rollback_chunk_num],
-        [video_output, generation_status, history_text, captions_text]
-    )
+        
+        # Example video gallery selection - only preview, don't load poses
+        if example_gallery is not None:
+            example_gallery.select(
+                on_example_video_select,
+                [example_video_paths],
+                [selected_video]  # Only update video preview
+            )
+        
+        # Pose loading events
+        load_poses_btn.click(
+            load_example_video_poses,
+            [selected_video],
+            [extraction_status, extraction_info]
+        )
+        
+        clear_poses_btn.click(
+            clear_extracted_poses,
+            [],
+            [extraction_status, extraction_info]
+        )
+        
+        # Main generate button - unified handler
+        gen_btn.click(
+            generate_video,
+            [camera_mode, prompt, negative, num_chunks, context_frames_2nd, 
+             strength, num_gs_iterations, seed,
+             # From video params
+             extension_mode, speed_multiplier,
+             # Preset params
+             movement_selector,
+             # Custom params
+             roll, pitch, yaw, fwd, right, up, ang_r, ang_p, ang_y],
+            [video_output, generation_status, history_text, captions_text]
+        )
+        
+        # Management events
+        reset_btn.click(
+            reset_session,
+            None,
+            [first_frame_display, video_output, generation_status, history_text, captions_text,
+             selected_video, extraction_status, extraction_info]
+        )
+        
+        rollback_btn.click(
+            rollback_to_chunk,
+            [rollback_chunk_num],
+            [video_output, generation_status, history_text, captions_text]
+        )
 
 
-if __name__ == "__main__":
-    print("\n🌐 Starting Gradio interface...")
-    print(f"📁 Example videos directory: {EXAMPLE_VIDEOS_DIR}")
-    print(f"🖼️ Example images directory: {EXAMPLE_IMAGES_DIR}")
-    print(f"💾 Pose cache directory: {POSE_CACHE_DIR}")
-    print("💡 Prompts will be auto-generated by Qwen captioner")
+
+    print("\n Starting Gradio interface...")
+    print(f" Example videos directory: {EXAMPLE_VIDEOS_DIR}")
+    print(f" Example images directory: {EXAMPLE_IMAGES_DIR}")
+    print(f" Pose cache directory: {POSE_CACHE_DIR}")
+    print(" Prompts will be auto-generated by Qwen captioner")
     print("Access at: http://localhost:7890")
     print("="*60)
     demo.launch(server_name="0.0.0.0", server_port=7890)
+
+
+if __name__ == "__main__":
+    main()
