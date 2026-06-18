@@ -5,3 +5,6 @@ __pycache__/
 build/
 *.so
 .vscode/.omc/
+kubernetes/
+docker/
+.dockerignore
