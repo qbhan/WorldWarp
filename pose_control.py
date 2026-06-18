@@ -1011,7 +1011,10 @@ def sample_sequence(diffusion_model, scheduler, xs_warped, valid_masks, prompt_e
     minxs_timestep = scheduler.timesteps[minxs_step_idx].item()
     max_timestep = scheduler.timesteps[0].item()
     start_timesteps = torch.full((B, T, 1, H, W), minxs_timestep, device=device)
-    start_timesteps = torch.where(valid_masks.bool(), start_timesteps, torch.tensor(max_timestep, device=device))
+    uniform_noise = cfg.inference_params.get("uniform_noise", False)
+    if not uniform_noise:
+        # non-uniform: invalid pixels get full noise (original WorldWarp behaviour)
+        start_timesteps = torch.where(valid_masks.bool(), start_timesteps, torch.tensor(max_timestep, device=device))
     start_sigmas = get_sigmas(start_timesteps.flatten(), val_ts, val_sigmas, device, 5).reshape(B, T, 1, H, W)
     xs_pred = (1.0 - start_sigmas) * xs_warped + start_sigmas * noise
     num_ctx_tokens = (current_context_frames - 1) // cfg.model_params.latent_downsampling_factor[0] + 1
@@ -1022,7 +1025,11 @@ def sample_sequence(diffusion_model, scheduler, xs_warped, valid_masks, prompt_e
     base_sched = base_sched.view(S, 1, 1, 1, 1, 1).expand(S, B, T, 1, H, W).clone()
     minxs_sched = base_sched.clone(); minxs_sched[:minxs_step_idx] = minxs_timestep
     valid_masks_exp = valid_masks.unsqueeze(0).expand(S, -1, -1, -1, -1, -1)
-    sched_mat = torch.where(valid_masks_exp, minxs_sched, base_sched)
+    if uniform_noise:
+        # uniform: all non-context pixels use the same minxs schedule (in-distribution for base VDM)
+        sched_mat = minxs_sched.expand(S, B, T, 1, H, W).clone()
+    else:
+        sched_mat = torch.where(valid_masks_exp, minxs_sched, base_sched)
     ctx_mask_exp = context_mask.view(1, B, T, 1, 1, 1).expand(S, B, T, 1, H, W).bool()
     sched_mat = torch.where(ctx_mask_exp, torch.tensor(0.0, device=device), sched_mat)
     sched_mat = torch.cat([sched_mat, torch.zeros_like(sched_mat[:1])], dim=0)
@@ -1082,7 +1089,8 @@ CONFIG = OmegaConf.create({
         "context_frames_2nd": 1,    
         "sampling_timesteps": 50,
         "guidance_scale": 5.0,
-        "minxs": 0.2, 
+        "minxs": 0.2,
+        "uniform_noise": False,
         "height": 480,
         "width": 720,
         "pose_lr": 1e-8,
@@ -1165,13 +1173,16 @@ class WanVideoGenerator:
         self.vae = AutoencoderKLWan.from_pretrained(self.cfg.paths.base_model_path, subfolder="vae", torch_dtype=torch.float32).to(self.device).eval()
         self.transformer = WanTransformer3DModel.from_pretrained(self.cfg.paths.base_model_path, subfolder="transformer", torch_dtype=self.dtype)
         
-        print(f"Loading checkpoint: {self.cfg.paths.finetuned_checkpoint_path}")
-        ckpt = torch.load(self.cfg.paths.finetuned_checkpoint_path, map_location="cpu", weights_only=False)
-
-        try: 
-            self.transformer.load_state_dict(ckpt, strict=True)
-        except: 
-            self.transformer.load_state_dict(ckpt, strict=False)
+        ckpt_path = self.cfg.paths.get("finetuned_checkpoint_path", "")
+        if ckpt_path:
+            print(f"Loading checkpoint: {ckpt_path}")
+            ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+            try:
+                self.transformer.load_state_dict(ckpt, strict=True)
+            except:
+                self.transformer.load_state_dict(ckpt, strict=False)
+        else:
+            print("Skipping finetuned checkpoint — using base WAN 2.1 weights.")
         self.transformer = self.transformer.to(self.device).eval()
         
         self.scheduler = FlowMatchEulerDiscreteScheduler(shift=5)

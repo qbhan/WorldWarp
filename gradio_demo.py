@@ -311,10 +311,12 @@ POSE_EXTENSION_MODES = {
 
 
 class VideoGenerationSession:
-    def __init__(self):
+    def __init__(self, cfg_overrides: dict = None):
         print("🚀 Initializing models...")
         self.config = OmegaConf.to_container(CONFIG, resolve=True)
         self.config = OmegaConf.create(self.config)
+        if cfg_overrides:
+            self.config = OmegaConf.merge(self.config, OmegaConf.create(cfg_overrides))
         self.temp_dir = tempfile.mkdtemp()
         self.config.experiment.output_root = self.temp_dir
         

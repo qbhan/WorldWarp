@@ -108,6 +108,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate scene discovery + ref-video building WITHOUT loading models or generating.",
     )
+    p.add_argument(
+        "--no_finetune",
+        action="store_true",
+        help="Use base WAN 2.1 weights only, skipping the finetuned checkpoint.",
+    )
+    p.add_argument(
+        "--uniform_noise",
+        action="store_true",
+        help="Apply the same noise level to all pixels (in-distribution for base VDM). "
+             "When off, invalid/unwarped pixels get full noise (original WorldWarp behaviour).",
+    )
 
     return p
 
@@ -423,7 +434,14 @@ def main() -> int:
             "fused fingers, still picture, messy background, three legs, many people in the "
             "background, walking backwards, unrealistic.",
         )
-        session = VideoGenerationSession()
+        cfg_overrides = {}
+        if args.no_finetune:
+            cfg_overrides.setdefault("paths", {})["finetuned_checkpoint_path"] = ""
+            print("--no_finetune: skipping finetuned checkpoint, using base WAN 2.1 weights.")
+        if args.uniform_noise:
+            cfg_overrides.setdefault("inference_params", {})["uniform_noise"] = True
+            print("--uniform_noise: applying uniform noise level to all pixels.")
+        session = VideoGenerationSession(cfg_overrides=cfg_overrides if cfg_overrides else None)
     else:
         config_negative = (
             "Person, people, pet, animals. Bright tones, static camera, overexposed, static, "
@@ -450,6 +468,8 @@ def main() -> int:
             "extension_mode": args.extension_mode,
             "height": args.height,
             "width": args.width,
+            "model_variant": "base_wan2.1" if args.no_finetune else "worldwarp_finetuned",
+            "uniform_noise": args.uniform_noise,
         })
 
     # --- Scene loop ---
