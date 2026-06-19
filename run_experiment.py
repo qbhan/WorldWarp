@@ -120,6 +120,24 @@ def build_parser() -> argparse.ArgumentParser:
              "When off, invalid/unwarped pixels get full noise (original WorldWarp behaviour).",
     )
 
+    # --- Evaluation ---
+    p.add_argument(
+        "--no_eval",
+        action="store_true",
+        help="Disable FID + pose-paired CLIP evaluation after generation.",
+    )
+    p.add_argument(
+        "--clip_model",
+        default="openai/clip-vit-large-patch14",
+        help="HuggingFace CLIP model repo id for evaluation.",
+    )
+    p.add_argument(
+        "--eval_batch_size",
+        type=int,
+        default=16,
+        help="Batch size for CLIP feature extraction and Inception FID.",
+    )
+
     return p
 
 
@@ -472,6 +490,15 @@ def main() -> int:
             "uniform_noise": args.uniform_noise,
         })
 
+    # --- Eval setup ---
+    import torch
+    eval_device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    do_eval = not getattr(args, "no_eval", False) and not args.dry_run
+    # Accumulators for pooled FID (WorldForge: all gen frames + FULL real set)
+    eval_all_gen: List[Path] = []
+    eval_all_real: List[Path] = []
+    eval_per_scene: dict = {}
+
     # --- Scene loop ---
     successes = []
     failures = []
@@ -509,8 +536,110 @@ def main() -> int:
                     generated_mp4=output_scene_dir / "generated.mp4",
                     reference_mp4=output_scene_dir / "reference.mp4",
                 )
+
+            # --- Per-scene evaluation (FID + pose-paired CLIP) ---
+            if do_eval:
+                try:
+                    from evaluation import extract_mp4_frames, score_scene_clip
+
+                    generated_mp4 = output_scene_dir / "generated.mp4"
+                    if not generated_mp4.exists():
+                        print(f"  [EVAL WARN] {scene_id}: generated.mp4 not found, skipping eval.")
+                    else:
+                        # Extract generated frames
+                        gen_eval_dir = output_scene_dir / "_eval_gen"
+                        gen_frames = extract_mp4_frames(generated_mp4, gen_eval_dir)
+
+                        # Real frames: use the SAME order as the reference video
+                        # (transforms.json pose order via get_frame_order)
+                        real_frames = get_frame_order(scene_root, frame_dir)
+
+                        # Per-scene CLIP: positional pairing, first n=min(gen,real)
+                        # WorldForge: n=min(len(gen),len(real_imgs)); gf[:n] vs rf[:n]
+                        scene_metrics = score_scene_clip(
+                            gen_paths=gen_frames,
+                            real_paths=real_frames,
+                            clip_model_name=args.clip_model,
+                            device=eval_device,
+                            batch_size=args.eval_batch_size,
+                        )
+                        eval_per_scene[scene_id] = scene_metrics
+                        print(
+                            f"  [EVAL] {scene_id}: CLIP all={scene_metrics['clip_all']:.4f} "
+                            f"novel={scene_metrics['clip_novel']:.4f} (n={scene_metrics['n']})",
+                            flush=True,
+                        )
+
+                        # Log per-scene metrics to wandb
+                        logger.log_scene_metrics(scene_id, scene_metrics)
+
+                        # Accumulate for pooled FID
+                        # WorldForge: all_gen += gen (all frames); all_real += real_imgs (FULL set)
+                        eval_all_gen += list(gen_frames)
+                        eval_all_real += list(real_frames)
+                except Exception as eval_exc:
+                    print(f"  [EVAL WARN] {scene_id}: eval failed ({eval_exc}); skipping.")
         else:
             failures.append((scene_id, "see above"))
+
+    # --- Pooled FID + summary eval ---
+    if do_eval and successes:
+        try:
+            import json
+            import math
+            from evaluation import pooled_fid
+
+            fid_val = pooled_fid(
+                all_gen_paths=eval_all_gen,
+                all_real_paths=eval_all_real,
+                device=eval_device,
+                batch_size=args.eval_batch_size,
+            )
+
+            # clip_novel_mean: mean of per-scene clip_novel, ignoring nan
+            novel_vals = [
+                m["clip_novel"]
+                for m in eval_per_scene.values()
+                if not math.isnan(m["clip_novel"])
+            ]
+            clip_novel_mean = float(sum(novel_vals) / len(novel_vals)) if novel_vals else float("nan")
+
+            all_vals = [m["clip_all"] for m in eval_per_scene.values() if not math.isnan(m["clip_all"])]
+            clip_all_mean = float(sum(all_vals) / len(all_vals)) if all_vals else float("nan")
+
+            # Log summary to wandb
+            summary_metrics = {
+                "eval/clip_novel_mean": clip_novel_mean,
+                "eval/clip_all_mean": clip_all_mean,
+                "eval/fid": fid_val if fid_val is not None else float("nan"),
+            }
+            logger.log_metrics(summary_metrics)
+
+            # Write eval_summary.json
+            eval_summary = {
+                "clip_novel_mean": clip_novel_mean,
+                "clip_all_mean": clip_all_mean,
+                "fid": fid_val,
+                "per_scene": eval_per_scene,
+                "clip_model": args.clip_model,
+                "fid_backend": "torchvision-inception_v3-pool3-2048d",
+            }
+            output_dir.mkdir(parents=True, exist_ok=True)
+            (output_dir / "eval_summary.json").write_text(json.dumps(eval_summary, indent=2))
+            print(f"  [EVAL] Wrote eval_summary.json -> {output_dir / 'eval_summary.json'}")
+
+            # WorldForge-style summary table
+            print(f"\n{'='*60}")
+            print("EVALUATION SUMMARY (WorldForge-compatible)")
+            print(f"{'='*60}")
+            print(f"{'scene':40s} {'n':>4s} {'clip_all':>9s} {'clip_novel':>11s}")
+            for sid, m in eval_per_scene.items():
+                print(f"{sid:40s} {m['n']:4d} {m['clip_all']:9.4f} {m['clip_novel']:11.4f}")
+            print(f"{'MEAN CLIP':56s} {clip_novel_mean:11.4f}")
+            print(f"{'POOLED FID':56s} {fid_val if fid_val is not None else float('nan'):11.4f}")
+        except Exception as eval_sum_exc:
+            print(f"[EVAL WARN] Post-loop eval summary failed: {eval_sum_exc}")
+            traceback.print_exc()
 
     # --- W&B finish ---
     if not args.dry_run:

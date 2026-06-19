@@ -136,6 +136,31 @@ class WandbLogger:
         except Exception as exc:  # noqa: BLE001
             print(f"[wandb_logger] Failed to log scene '{scene_id}': {exc}")
 
+    def log_metrics(self, metrics: Mapping) -> None:
+        """Log arbitrary scalar (or media) metrics into the current run.
+
+        No-op when wandb is disabled or the run is not initialised.
+        """
+        if not self._enabled or self._run is None:
+            return
+        try:
+            self._run.log(dict(metrics))
+        except Exception as exc:  # noqa: BLE001
+            print(f"[wandb_logger] log_metrics failed: {exc}")
+
+    def log_scene_metrics(self, scene_id: str, metrics: Mapping) -> None:
+        """Log per-scene scalar metrics namespaced as 'eval/<scene_id>/<key>'.
+
+        No-op when wandb is disabled or the run is not initialised.
+        """
+        if not self._enabled or self._run is None:
+            return
+        payload = {f"eval/{scene_id}/{k}": v for k, v in metrics.items()}
+        try:
+            self._run.log(payload)
+        except Exception as exc:  # noqa: BLE001
+            print(f"[wandb_logger] log_scene_metrics failed for '{scene_id}': {exc}")
+
     def finish(self) -> None:
         """Finish the W&B run.  Call once after the scene loop."""
         if self._run is not None:
